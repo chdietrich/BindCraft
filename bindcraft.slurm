@@ -1,24 +1,27 @@
 #!/bin/bash
-#SBATCH --nodes 1
-#SBATCH --ntasks 1
-#SBATCH --cpus-per-task 1
-#SBATCH --partition=gpu
-#SBATCH --qos=gpu
+# SLURM Queue Configuration (gpushort = 5H limit / gpulong = 7 day limit)
+#SBATCH --partition=gpushort
+# Mail notifications for job BEGIN, END, FAIL (only JGU/IMB addresses)
+#SBATCH --mail-user=j.doe@imb-mainz.de
+#SBATCH --mail-type=BEGIN,END,FAIL
+# Use 1 GPU (more wont help)
 #SBATCH --gres=gpu:1
-#SBATCH --mem 42gb
-#SBATCH --time 72:00:00
-#SBATCH --output=bindcraft_%A.log
+# Use 4 CPU cores (more wont help)
+#SBATCH --cpus-per-task=4
+# Use 48 GB memory
+#SBATCH --mem=48G
+# Run on 1 node
+#SBATCH --nodes=1
+# Log output to file
+#SBATCH --output=bindcraft_slurm-%A.log
+#SBATCH --error=bindcraft_slurm-%A.log
 
 # Initialise environment and modules
-CONDA_BASE=$(conda info --base)
-source ${CONDA_BASE}/bin/activate ${CONDA_BASE}/envs/BindCraft
-export LD_LIBRARY_PATH=${CONDA_BASE}/lib
+module load micromamba
+micromamba activate BindCraft
 
-# alternatively you can source the environment directly
-#source /path/to/mambaforge/bin/activate /path/to/mambaforge/envs/BindCraft
-
-# Get the directory where the bindcraft script is located
-SCRIPT_DIR=$(dirname "$0")
+# Set the directory where the bindcraft script is located
+SCRIPT_DIR=~/BindCraft
 
 # Parsing command line options
 SETTINGS=""
