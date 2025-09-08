@@ -2,12 +2,13 @@
 ################## BindCraft installation script
 ################## specify conda/mamba folder, and installation folder for git repositories, and whether to use mamba or $pkg_manager
 # Default value for pkg_manager
-pkg_manager='conda'
+pkg_manager='micromamba'
 cuda=''
+env_name='BindCraft'
 
 # Define the short and long options
-OPTIONS=p:c:
-LONGOPTIONS=pkg_manager:,cuda:
+OPTIONS=p:c:e:
+LONGOPTIONS=pkg_manager:,cuda:,env_name:
 
 # Parse the command-line options
 PARSED=$(getopt --options=$OPTIONS --longoptions=$LONGOPTIONS --name "$0" -- "$@")
@@ -46,36 +47,20 @@ SECONDS=0
 
 # set paths needed for installation and check for conda installation
 install_dir=$(pwd)
-CONDA_BASE=$(conda info --base 2>/dev/null) || { echo -e "Error: conda is not installed or cannot be initialised."; exit 1; }
+CONDA_BASE=$($pkg_manager info --base 2>/dev/null) || { echo -e "Error: conda is not installed or cannot be initialised."; exit 1; }
 echo -e "Conda is installed at: $CONDA_BASE"
 
 ### BindCraft install begin, create base environment
 echo -e "Installing BindCraft environment\n"
-$pkg_manager create --name BindCraft python=3.10 -y || { echo -e "Error: Failed to create BindCraft conda environment"; exit 1; }
-conda env list | grep -w 'BindCraft' >/dev/null 2>&1 || { echo -e "Error: Conda environment 'BindCraft' does not exist after creation."; exit 1; }
-
-# Load newly created BindCraft environment
-echo -e "Loading BindCraft environment\n"
-source ${CONDA_BASE}/bin/activate ${CONDA_BASE}/envs/BindCraft || { echo -e "Error: Failed to activate the BindCraft environment."; exit 1; }
-[ "$CONDA_DEFAULT_ENV" = "BindCraft" ] || { echo -e "Error: The BindCraft environment is not active."; exit 1; }
-echo -e "BindCraft environment activated at ${CONDA_BASE}/envs/BindCraft"
+$pkg_manager create --name $env_name python=3.10 -y || { echo -e "Error: Failed to create BindCraft conda environment"; exit 1; }
+$pkg_manager env list | grep -w $env_name >/dev/null 2>&1 || { echo -e "Error: Conda environment 'BindCraft' does not exist after creation."; exit 1; }
 
 # install required conda packages
 echo -e "Instaling conda requirements\n"
 if [ -n "$cuda" ]; then
-  CONDA_OVERRIDE_CUDA="$cuda" $pkg_manager install \
-    pip pandas matplotlib 'numpy<2.0.0' biopython scipy pdbfixer seaborn libgfortran5 tqdm jupyter ffmpeg pyrosetta fsspec py3dmol \
-    chex dm-haiku 'flax<0.10.0' dm-tree joblib ml-collections immutabledict optax \
-    'jax>=0.4,<=0.6.0' 'jaxlib>=0.4,<=0.6.0=*cuda*' cuda-nvcc cudnn \
-    -c conda-forge -c nvidia --channel https://conda.graylab.jhu.edu -y \
-  || { echo -e "Error: Failed to install conda packages."; exit 1; }
+    CONDA_OVERRIDE_CUDA="$cuda" $pkg_manager install --name $env_name pip pandas matplotlib numpy"<2.0.0" biopython scipy pdbfixer seaborn libgfortran5 tqdm jupyter ffmpeg pyrosetta fsspec py3dmol chex dm-haiku flax"<0.10.0" dm-tree joblib ml-collections immutabledict optax 'jax>=0.4,<=0.6.0' 'jaxlib>=0.4,<=0.6.0=*cuda*' cuda-nvcc cudnn cuda-version=$cuda -c conda-forge -c nvidia  --channel https://conda.graylab.jhu.edu -y || { echo -e "Error: Failed to install conda packages."; exit 1; }
 else
-  $pkg_manager install \
-    pip pandas matplotlib 'numpy<2.0.0' biopython scipy pdbfixer seaborn libgfortran5 tqdm jupyter ffmpeg pyrosetta fsspec py3dmol \
-    chex dm-haiku 'flax<0.10.0' dm-tree joblib ml-collections immutabledict optax \
-    'jax>=0.4,<=0.6.0' 'jaxlib>=0.4,<=0.6.0' \
-    -c conda-forge -c nvidia --channel https://conda.graylab.jhu.edu -y \
-  || { echo -e "Error: Failed to install conda packages."; exit 1; }
+    $pkg_manager install --name $env_name pip pandas matplotlib numpy"<2.0.0" biopython scipy pdbfixer seaborn libgfortran5 tqdm jupyter ffmpeg pyrosetta fsspec py3dmol chex dm-haiku flax"<0.10.0" dm-tree joblib ml-collections immutabledict optax 'jax>=0.4,<=0.6.0' 'jaxlib>=0.4,<=0.6.0' cuda-nvcc cudnn -c conda-forge -c nvidia  --channel https://conda.graylab.jhu.edu -y || { echo -e "Error: Failed to install conda packages."; exit 1; }
 fi
 
 # make sure all required packages were installed
@@ -84,7 +69,7 @@ missing_packages=()
 
 # Check each package
 for pkg in "${required_packages[@]}"; do
-    conda list "$pkg" | grep -w "$pkg" >/dev/null 2>&1 || missing_packages+=("$pkg")
+    $pkg_manager list --name $env_name "$pkg" | grep -w "$pkg" >/dev/null 2>&1 || missing_packages+=("$pkg")
 done
 
 # If any packages are missing, output error and exit
@@ -98,8 +83,8 @@ fi
 
 # install ColabDesign
 echo -e "Installing ColabDesign\n"
-pip3 install git+https://github.com/sokrypton/ColabDesign.git --no-deps || { echo -e "Error: Failed to install ColabDesign"; exit 1; }
-python -c "import colabdesign" >/dev/null 2>&1 || { echo -e "Error: colabdesign module not found after installation"; exit 1; }
+$pkg_manager run --name $env_name pip3 install git+https://github.com/sokrypton/ColabDesign.git --no-deps || { echo -e "Error: Failed to install ColabDesign"; exit 1; }
+$pkg_manager run --name $env_name python -c "import colabdesign" >/dev/null 2>&1 || { echo -e "Error: colabdesign module not found after installation"; exit 1; }
 
 # AlphaFold2 weights
 echo -e "Downloading AlphaFold2 model weights \n"
@@ -134,7 +119,7 @@ $pkg_manager clean -a -y
 echo -e "$pkg_manager cleaned up\n"
 
 ################## finish script
-t=$SECONDS 
+t=$SECONDS
 echo -e "Successfully finished BindCraft installation!\n"
 echo -e "Activate environment using command: \"$pkg_manager activate BindCraft\""
 echo -e "\n"
